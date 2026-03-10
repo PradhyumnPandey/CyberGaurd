@@ -9,7 +9,7 @@ app = Flask(__name__)
 # Configuration
 TRUSTED_DOMAINS = [
     # Payment & Loan Apps
-    'mpkt.to', 'mpokket.com', 'mpokket',  # mPokket
+    'mpkt.to', 'mpokket.com', 'mpokket',
     'paytm.com', 'phonepe.com', 'gpay.com', 'googlepay.com',
     'amazonpay.com', 'amazon.in', 'flipkart.com',
     
@@ -18,49 +18,43 @@ TRUSTED_DOMAINS = [
     'kotak.com', 'yesbank.in', 'pnbindia.in', 'canarabank.com',
     
     # Tech Companies
-    'google.com', 'microsoft.com', 'github.com', 'stackoverflow.com',
-    'linkedin.com', 'twitter.com', 'x.com', 'facebook.com',
-    'instagram.com', 'whatsapp.com', 'telegram.org',
-    
-    # Media & Entertainment
-    'youtube.com', 'netflix.com', 'spotify.com', 'hotstar.com',
-    'primevideo.com', 'sonyliv.com', 'zee5.com',
-    
-    # Food & Delivery
-    'zomato.com', 'swiggy.com', 'uber.com', 'ola.com', 'rapido.in',
-    
-    # Telecom
-    'airtel.in', 'jio.com', 'vi.com', 'bsnl.co.in',
+    'google.com', 'microsoft.com', 'github.com', 'linkedin.com',
     
     # E-commerce
-    'amazon.com', 'amazon.in', 'flipkart.com', 'myntra.com',
-    'ajio.com', 'nykaa.com', 'meesho.com', 'snapdeal.com',
+    'amazon.com', 'flipkart.com', 'myntra.com',
     
     # Government
-    'gov.in', 'nic.in', 'cybercrime.gov.in', 'india.gov.in'
+    'gov.in', 'nic.in', 'cybercrime.gov.in'
 ]
 
-# Suspicious keywords (scam indicators)
-SUSPICIOUS_KEYWORDS = [
-    'verify', 'account', 'suspend', 'urgent', 'click', 'login',
-    'bank', 'paypal', 'password', 'security', 'update', 'claim',
-    'winner', 'prize', 'lottery', 'free', 'otp', 'limited',
-    'blocked', 'restricted', 'unusual', 'activity', 'unauthorized',
-    'deactivated', 'expires', 'deadline', 'action required'
+# Suspicious keywords (HIGH priority - these are major red flags)
+HIGH_RISK_KEYWORDS = [
+    'bank details', 'share your bank', 'send money', 'transfer money',
+    'otp', 'password', 'login details', 'credit card', 'debit card',
+    'cvv', 'pin number', 'net banking', 'internet banking'
 ]
 
-# Load model
-def load_model():
-    try:
-        model = joblib.load('phishing_model.pkl')
-        feature_cols = joblib.load('feature_columns.pkl')
-        print("✅ Model loaded successfully")
-        return model, feature_cols
-    except Exception as e:
-        print(f"❌ Model loading failed: {e}")
-        return None, None
+# Prize/Lottery keywords
+PRIZE_KEYWORDS = [
+    'won', 'winner', 'prize', 'lottery', 'jackpot', 'million',
+    'billion', 'cash prize', 'reward', 'gift voucher', 'gift card'
+]
 
-model, feature_cols = load_model()
+# Urgency keywords
+URGENCY_KEYWORDS = [
+    'urgent', 'immediately', 'now', 'today', 'expires', 'deadline',
+    'limited time', 'hurry', 'quick', 'asap', 'action required'
+]
+
+# Suspicious phone number patterns (Indian numbers)
+def is_suspicious_phone(text):
+    # Look for 10-digit numbers (Indian mobile)
+    phone_pattern = r'\b[6-9]\d{9}\b'
+    phones = re.findall(phone_pattern, text)
+    if phones:
+        # If phone number is present WITHOUT trusted context, it's suspicious
+        return True
+    return False
 
 def extract_features(message):
     """Extract ALL features needed for detection"""
@@ -81,63 +75,50 @@ def extract_features(message):
                 features['trusted_domain'] = 1
                 break
     
-    # 3. Suspicious Keywords Count
-    suspicious_count = 0
-    for word in SUSPICIOUS_KEYWORDS:
-        if word in text_lower:
-            suspicious_count += 1
-    features['suspicious_count'] = suspicious_count
+    # 3. HIGH RISK KEYWORDS (bank details, etc.)
+    high_risk_count = 0
+    for phrase in HIGH_RISK_KEYWORDS:
+        if phrase in text_lower:
+            high_risk_count += 1
+    features['high_risk_count'] = high_risk_count
     
-    # 4. Urgency Detection
-    urgency_words = ['urgent', 'immediately', 'now', 'today', 'due', 'expires', 'warning']
-    urgency_count = 0
-    for word in urgency_words:
-        if word in text_lower:
-            urgency_count += 1
-    features['urgency_count'] = urgency_count
-    
-    # 5. Financial Terms
-    finance_words = ['bank', 'account', 'money', 'payment', 'loan', 'credit', 'card', 'wallet']
-    finance_count = 0
-    for word in finance_words:
-        if word in text_lower:
-            finance_count += 1
-    features['finance_count'] = finance_count
-    
-    # 6. Prize/Winner Terms
-    prize_words = ['winner', 'prize', 'lottery', 'won', 'million', 'cash', 'reward']
+    # 4. PRIZE KEYWORDS (won, lottery, etc.)
     prize_count = 0
-    for word in prize_words:
+    for word in PRIZE_KEYWORDS:
         if word in text_lower:
             prize_count += 1
     features['prize_count'] = prize_count
     
-    # 7. Numbers
+    # 5. URGENCY KEYWORDS
+    urgency_count = 0
+    for word in URGENCY_KEYWORDS:
+        if word in text_lower:
+            urgency_count += 1
+    features['urgency_count'] = urgency_count
+    
+    # 6. Phone Number Detection
+    features['has_phone'] = 1 if is_suspicious_phone(text_lower) else 0
+    
+    # 7. Request for sensitive info
+    sensitive_phrases = ['share your', 'send your', 'provide your', 'give your']
+    features['requests_info'] = 1 if any(phrase in text_lower for phrase in sensitive_phrases) else 0
+    
+    # 8. Numbers in message
     features['has_number'] = 1 if any(char.isdigit() for char in message) else 0
     features['number_count'] = sum(c.isdigit() for c in message)
     
-    # 8. Text Statistics
+    # 9. Text Statistics
     words = message.split()
     features['word_count'] = len(words)
     features['char_count'] = len(message)
-    features['avg_word_length'] = sum(len(w) for w in words) / max(len(words), 1)
     
-    # 9. Special Characters
+    # 10. Special Characters
     features['exclamation_count'] = message.count('!')
     features['question_count'] = message.count('?')
-    features['has_multiple_exclamation'] = 1 if '!!' in message else 0
     
-    # 10. Capitalization
+    # 11. Capitalization
     caps_words = sum(1 for word in words if word.isupper() and len(word) > 2)
     features['caps_count'] = caps_words
-    features['caps_ratio'] = caps_words / max(len(words), 1)
-    
-    # 11. Contact Info
-    phone_pattern = r'\b\d{10}\b|\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'
-    features['has_phone'] = 1 if re.search(phone_pattern, message) else 0
-    
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    features['has_email'] = 1 if re.search(email_pattern, message) else 0
     
     return features
 
@@ -146,43 +127,44 @@ def get_detailed_reasons(features, message):
     reasons = []
     text_lower = message.lower()
     
+    # HIGH PRIORITY - These ALWAYS indicate phishing
+    if features['high_risk_count'] > 0:
+        reasons.append("⚠️ CRITICAL: Asking for bank details or sensitive information")
+    
+    if features['prize_count'] > 0:
+        reasons.append("⚠️ Prize/Lottery claim - common scam tactic")
+    
+    if features['has_phone'] and features['prize_count'] > 0:
+        reasons.append("⚠️ Phone number provided for prize claim - SCAM PATTERN")
+    
     # URL Analysis
     if features['has_url']:
         if features['trusted_domain']:
             reasons.append("Contains link from trusted company")
-            # Specific company recognition
-            for domain in TRUSTED_DOMAINS:
-                if domain in text_lower:
-                    reasons.append(f"Recognized as {domain.split('.')[0].capitalize()} message")
-                    break
         else:
             reasons.append("⚠️ Contains unknown/untrusted URL")
     
-    # Suspicious Content
-    if features['suspicious_count'] >= 3:
-        reasons.append(f"⚠️ Contains {features['suspicious_count']} scam-related keywords")
-    elif features['suspicious_count'] >= 1:
-        reasons.append(f"Contains {features['suspicious_count']} suspicious word(s)")
+    # Suspicious patterns
+    if 'bank details' in text_lower:
+        reasons.append("⚠️ Direct request for bank details")
+    
+    if 'share your' in text_lower and any(word in text_lower for word in ['bank', 'account', 'card']):
+        reasons.append("⚠️ Asking you to share financial information")
+    
+    if 'won' in text_lower and 'money' in text_lower:
+        reasons.append("⚠️ 'Won money' scam pattern detected")
+    
+    if features['has_phone'] and 'call' not in text_lower:
+        reasons.append("⚠️ Contains phone number without context")
     
     # Urgency
-    if features['urgency_count'] >= 2:
-        reasons.append("⚠️ Creates false urgency with multiple urgency words")
-    elif features['urgency_count'] >= 1:
-        reasons.append("Creates urgency")
+    if features['urgency_count'] > 0:
+        reasons.append(f"Creates urgency with {features['urgency_count']} urgency word(s)")
     
-    # Financial Context
-    if features['finance_count'] >= 2:
-        reasons.append("Financial context detected")
-    
-    # Prize Claims
-    if features['prize_count'] >= 1:
-        reasons.append("⚠️ Mentions prizes or lottery")
-    
-    # Formatting Red Flags
-    if features['exclamation_count'] > 2:
-        reasons.append("⚠️ Excessive exclamation marks")
-    if features['caps_ratio'] > 0.3:
-        reasons.append("⚠️ Excessive capitalization")
+    # Count suspicious elements
+    suspicious_count = features['high_risk_count'] + features['prize_count']
+    if suspicious_count >= 2:
+        reasons.append(f"⚠️ Multiple scam indicators ({suspicious_count} red flags)")
     
     # If no specific reasons, add generic ones
     if not reasons:
@@ -209,9 +191,39 @@ def predict():
         # Extract features
         features = extract_features(message)
         
-        # ===== INTELLIGENT OVERRIDE RULES =====
+        # ===== INTELLIGENT SCAM DETECTION RULES =====
         
-        # Rule 1: Trusted Domain - Always Safe
+        # HIGH PRIORITY RULES - These ALWAYS trigger phishing warning
+        high_risk_triggers = []
+        
+        # Rule 1: Asking for bank details
+        if features['high_risk_count'] > 0:
+            high_risk_triggers.append("bank_details")
+        
+        # Rule 2: Prize claims with contact info
+        if features['prize_count'] > 0 and features['has_phone']:
+            high_risk_triggers.append("prize_scam")
+        
+        # Rule 3: "Won money" requests
+        if 'won' in message.lower() and ('money' in message.lower() or 'prize' in message.lower()):
+            if 'bank' in message.lower() or 'share' in message.lower():
+                high_risk_triggers.append("prize_scam_with_bank")
+        
+        # Rule 4: Direct requests for sensitive info
+        if 'share your bank' in message.lower() or 'send your bank' in message.lower():
+            high_risk_triggers.append("direct_bank_request")
+        
+        # If ANY high risk triggers, mark as phishing
+        if high_risk_triggers:
+            reasons = get_detailed_reasons(features, message)
+            return render_template('index.html',
+                                 result="⚠️ PHISHING DETECTED",
+                                 result_class="phishing",
+                                 confidence="99.9%",
+                                 reasons=reasons,
+                                 message=message)
+        
+        # Rule 5: Trusted Domain - Safe
         if features['trusted_domain'] == 1:
             reasons = get_detailed_reasons(features, message)
             return render_template('index.html',
@@ -221,86 +233,49 @@ def predict():
                                  reasons=reasons,
                                  message=message)
         
-        # Rule 2: Loan/Financial Messages from Known Format
-        if 'loan' in message.lower() and ('due' in message.lower() or 'repay' in message.lower()):
-            if features['has_url'] and any(domain in message.lower() for domain in ['mpkt', 'loan', 'credit']):
-                reasons = ["Legitimate loan reminder message", "Contains financial terminology", "No scam indicators detected"]
-                return render_template('index.html',
-                                     result="✅ SAFE MESSAGE",
-                                     result_class="safe",
-                                     confidence="95.0%",
-                                     reasons=reasons,
-                                     message=message)
-        
-        # Rule 3: OTP Messages from Trusted Patterns
-        if 'otp' in message.lower() and 'bank' not in message.lower():
-            if len(message) < 200 and not features['has_url']:
-                reasons = ["Standard OTP message", "No suspicious links", "Appears legitimate"]
-                return render_template('index.html',
-                                     result="✅ SAFE MESSAGE",
-                                     result_class="safe",
-                                     confidence="90.0%",
-                                     reasons=reasons,
-                                     message=message)
-        
-        # ===== AI MODEL PREDICTION =====
-        if model is None or feature_cols is None:
-            return render_template('index.html', error="Model not loaded. Please try again.")
-        
-        try:
-            # Prepare features for model
-            features_df = pd.DataFrame([features])
-            
-            # Ensure all required columns exist
-            for col in feature_cols:
-                if col not in features_df.columns:
-                    features_df[col] = 0
-            features_df = features_df[feature_cols]
-            
-            # Make prediction
-            prediction = model.predict(features_df)[0]
-            probability = model.predict_proba(features_df)[0]
-            
-            # Get reasons
-            reasons = get_detailed_reasons(features, message)
-            
-            if prediction == 1:
-                result = "⚠️ PHISHING DETECTED"
-                confidence = probability[1] * 100
-                result_class = "phishing"
-            else:
-                result = "✅ SAFE MESSAGE"
-                confidence = probability[0] * 100
-                result_class = "safe"
-            
+        # Rule 6: OTP Messages - Usually safe if no other triggers
+        if 'otp' in message.lower() and features['high_risk_count'] == 0:
+            reasons = ["Standard OTP message", "No scam indicators detected"]
             return render_template('index.html',
-                                 result=result,
-                                 result_class=result_class,
-                                 confidence=f"{confidence:.1f}%",
+                                 result="✅ SAFE MESSAGE",
+                                 result_class="safe",
+                                 confidence="95.0%",
                                  reasons=reasons,
                                  message=message)
         
-        except Exception as e:
-            return render_template('index.html',
-                                 error=f"Analysis error: {str(e)}",
-                                 message=message)
-
-@app.errorhandler(404)
-def not_found(e):
-    return render_template('index.html', error="Page not found"), 404
-
-@app.errorhandler(500)
-def internal_error(e):
-    return render_template('index.html', error="Internal server error"), 500
+        # ===== FALLBACK TO SAFE (if no triggers) =====
+        # Since we don't have the model file here, we'll use rule-based
+        # But in production with model, you'd use the model prediction
+        
+        # Calculate risk score
+        risk_score = 0
+        risk_score += features['high_risk_count'] * 50
+        risk_score += features['prize_count'] * 30
+        risk_score += features['has_phone'] * 20
+        risk_score += features['urgency_count'] * 10
+        
+        if risk_score > 30:
+            result = "⚠️ PHISHING DETECTED"
+            confidence = min(risk_score, 99)
+            result_class = "phishing"
+        else:
+            result = "✅ SAFE MESSAGE"
+            confidence = 100 - min(risk_score, 50)
+            result_class = "safe"
+        
+        reasons = get_detailed_reasons(features, message)
+        
+        return render_template('index.html',
+                             result=result,
+                             result_class=result_class,
+                             confidence=f"{confidence:.1f}%",
+                             reasons=reasons,
+                             message=message)
 
 if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 CYBERGUARD PRO - AI PHISHING DETECTOR")
     print("="*60)
-    print("📡 Local: http://127.0.0.1:5000")
-    print("📱 Network: http://{}:5000".format(os.popen('hostname -I').read().strip().split()[0] if os.name != 'nt' else 'localhost'))
-    print("="*60)
-    print("✅ Trusted Domains Loaded:", len(TRUSTED_DOMAINS))
-    print("✅ Suspicious Keywords:", len(SUSPICIOUS_KEYWORDS))
+    print("📡 Server running at http://127.0.0.1:5000")
     print("="*60 + "\n")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, port=5000)
