@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberGuard - Security Center</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>CyberGuard</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/info" class="active">Security Center</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Security Center</h1>
+            <p>Stay informed, stay protected</p>
+        </div>
+
+        <!-- Emergency Contacts -->
+        <div class="info-section">
+            <h2><i class="fas fa-phone-alt"></i> Emergency Helplines</h2>
+            <div class="contacts">
+                <div class="contact-card">
+                    <h3>National Cyber Crime</h3>
+                    <p class="phone">1930</p>
+                    <p>24x7 Reporting</p>
+                </div>
+                <div class="contact-card">
+                    <h3>Police Emergency</h3>
+                    <p class="phone">100</p>
+                    <p>Immediate Assistance</p>
+                </div>
+                <div class="contact-card">
+                    <h3>Women's Helpline</h3>
+                    <p class="phone">181</p>
+                    <p>Women in Distress</p>
+                </div>
+                <div class="contact-card">
+                    <h3>Cyber Portal</h3>
+                    <p class="web">cybercrime.gov.in</p>
+                    <p>Online Complaint</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Phishing Types -->
+        <div class="info-section">
+            <h2><i class="fas fa-exclamation-triangle"></i> Common Scams</h2>
+            <div class="scams">
+                <div class="scam-card">
+                    <h3>Email Phishing</h3>
+                    <p>Fake emails pretending to be from banks</p>
+                </div>
+                <div class="scam-card">
+                    <h3>SMS Phishing</h3>
+                    <p>Text messages with malicious links</p>
+                </div>
+                <div class="scam-card">
+                    <h3>Phone Scams</h3>
+                    <p>Calls asking for OTP or bank details</p>
+                </div>
+                <div class="scam-card">
+                    <h3>Fake Websites</h3>
+                    <p>Websites that look real but are fake</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protection Tips -->
+        <div class="info-section">
+            <h2><i class="fas fa-shield-alt"></i> Protection Tips</h2>
+            <ul class="tips-list">
+                <li><i class="fas fa-check"></i> Never share OTP or passwords</li>
+                <li><i class="fas fa-check"></i> Check URLs before clicking</li>
+                <li><i class="fas fa-check"></i> Look for https:// in websites</li>
+                <li><i class="fas fa-check"></i> Be wary of urgent messages</li>
+                <li><i class="fas fa-check"></i> Enable two-factor authentication</li>
+                <li><i class="fas fa-check"></i> Keep software updated</li>
+            </ul>
+        </div>
+
+        <!-- What to do if scammed -->
+        <div class="info-section">
+            <h2><i class="fas fa-first-aid"></i> If You're a Victim</h2>
+            <ol class="steps">
+                <li>Call 1930 immediately</li>
+                <li>Report at cybercrime.gov.in</li>
+                <li>Contact your bank</li>
+                <li>Change all passwords</li>
+                <li>Save evidence</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>CyberGuard • Advanced Phishing Detection</p>
+    </footer>
+</body>
+</html>

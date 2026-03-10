@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberGuard - Phishing Detector</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>CyberGuard</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="/info">Security Center</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>AI Phishing Detector</h1>
+            <p>Protect yourself from online scams</p>
+        </div>
+
+        <!-- Detector Card -->
+        <div class="detector-card">
+            <h2><i class="fas fa-search"></i> Analyze Message</h2>
+            <p>Paste any suspicious message below</p>
+            
+            <form action="/predict" method="POST">
+                <textarea 
+                    name="message" 
+                    rows="5" 
+                    placeholder="Example: 'URGENT: Your account has been limited. Verify now: http://fake.com'"
+                    required>{{ message if message else '' }}</textarea>
+                <button type="submit" class="btn">
+                    <i class="fas fa-shield-alt"></i> Analyze
+                </button>
+            </form>
+
+            <!-- Results -->
+            <!-- Results -->
+{% if result %}
+<div class="result-card {{ result_class }}">
+    <div class="result-header">
+        <i class="fas {% if result_class == 'phishing' %}fa-exclamation-triangle{% else %}fa-check-circle{% endif %}"></i>
+        <h3>{{ result }}</h3>
+    </div>
+    
+    <div class="confidence">
+        <span>Confidence:</span>
+        <strong>{{ confidence }}</strong>
+    </div>
+    
+    {% if reasons %}
+    <div class="reasons">
+        <h4>Analysis:</h4>
+        <ul>
+            {% for reason in reasons %}
+            <li><i class="fas fa-circle"></i> {{ reason }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+            <!-- Error -->
+            {% if error %}
+            <div class="error">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>{{ error }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Accuracy</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">1000+</div>
+                <div class="stat-label">Messages Trained</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">24/7</div>
+                <div class="stat-label">Protection</div>
+            </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="tips">
+            <h3><i class="fas fa-lightbulb"></i> Quick Tips</h3>
+            <div class="tips-grid">
+                <div class="tip">
+                    <i class="fas fa-link"></i>
+                    <span>Check URLs before clicking</span>
+                </div>
+                <div class="tip">
+                    <i class="fas fa-key"></i>
+                    <span>Never share OTP</span>
+                </div>
+                <div class="tip">
+                    <i class="fas fa-clock"></i>
+                    <span>Beware of urgency</span>
+                </div>
+                <div class="tip">
+                    <i class="fas fa-shield"></i>
+                    <span>Enable 2FA</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>CyberGuard • Advanced Phishing Detection</p>
+    </footer>
+</body>
+</html>
