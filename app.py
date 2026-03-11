@@ -46,15 +46,24 @@ URGENCY_KEYWORDS = [
     'limited time', 'hurry', 'quick', 'asap', 'action required'
 ]
 
-# Suspicious phone number patterns (Indian numbers)
+# Load the trained model
+print("📦 Loading AI Model...")
+try:
+    model = joblib.load('phishing_model.pkl')
+    feature_cols = joblib.load('feature_columns.pkl')
+    print("✅ Model loaded successfully!")
+    print(f"📊 Features loaded: {len(feature_cols)}")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
+    model = None
+    feature_cols = None
+
+# Suspicious phone number detection
 def is_suspicious_phone(text):
     # Look for 10-digit numbers (Indian mobile)
     phone_pattern = r'\b[6-9]\d{9}\b'
     phones = re.findall(phone_pattern, text)
-    if phones:
-        # If phone number is present WITHOUT trusted context, it's suspicious
-        return True
-    return False
+    return len(phones) > 0
 
 def extract_features(message):
     """Extract ALL features needed for detection"""
@@ -111,6 +120,7 @@ def extract_features(message):
     words = message.split()
     features['word_count'] = len(words)
     features['char_count'] = len(message)
+    features['avg_word_length'] = sum(len(w) for w in words) / max(len(words), 1)
     
     # 10. Special Characters
     features['exclamation_count'] = message.count('!')
@@ -119,6 +129,15 @@ def extract_features(message):
     # 11. Capitalization
     caps_words = sum(1 for word in words if word.isupper() and len(word) > 2)
     features['caps_count'] = caps_words
+    features['caps_ratio'] = caps_words / max(len(words), 1)
+    
+    # 12. Suspicious count (for model compatibility)
+    suspicious_words = ['verify', 'account', 'suspend', 'click', 'login', 'bank', 'password', 'security', 'update', 'claim']
+    suspicious_count = 0
+    for word in suspicious_words:
+        if word in text_lower:
+            suspicious_count += 1
+    features['suspicious_count'] = suspicious_count
     
     return features
 
@@ -233,26 +252,52 @@ def predict():
                                  reasons=reasons,
                                  message=message)
         
-        # Rule 6: OTP Messages - Usually safe if no other triggers
-        if 'otp' in message.lower() and features['high_risk_count'] == 0:
-            reasons = ["Standard OTP message", "No scam indicators detected"]
-            return render_template('index.html',
-                                 result="✅ SAFE MESSAGE",
-                                 result_class="safe",
-                                 confidence="95.0%",
-                                 reasons=reasons,
-                                 message=message)
+        # ===== USE THE TRAINED MODEL FOR PREDICTION =====
+        if model is not None and feature_cols is not None:
+            try:
+                # Prepare features for model
+                features_df = pd.DataFrame([features])
+                
+                # Ensure all required columns exist
+                for col in feature_cols:
+                    if col not in features_df.columns:
+                        features_df[col] = 0
+                features_df = features_df[feature_cols]
+                
+                # Make prediction with the trained model
+                prediction = model.predict(features_df)[0]
+                probability = model.predict_proba(features_df)[0]
+                
+                reasons = get_detailed_reasons(features, message)
+                
+                if prediction == 1:
+                    result = "⚠️ PHISHING DETECTED"
+                    confidence = probability[1] * 100
+                    result_class = "phishing"
+                else:
+                    result = "✅ SAFE MESSAGE"
+                    confidence = probability[0] * 100
+                    result_class = "safe"
+                
+                return render_template('index.html',
+                                     result=result,
+                                     result_class=result_class,
+                                     confidence=f"{confidence:.1f}%",
+                                     reasons=reasons,
+                                     message=message)
+            
+            except Exception as e:
+                print(f"Model prediction error: {e}")
+                # Fall through to rule-based if model fails
         
-        # ===== FALLBACK TO SAFE (if no triggers) =====
-        # Since we don't have the model file here, we'll use rule-based
-        # But in production with model, you'd use the model prediction
-        
+        # ===== FALLBACK TO RULE-BASED DETECTION (if model not available) =====
         # Calculate risk score
         risk_score = 0
         risk_score += features['high_risk_count'] * 50
         risk_score += features['prize_count'] * 30
         risk_score += features['has_phone'] * 20
         risk_score += features['urgency_count'] * 10
+        risk_score += features['has_url'] * 15
         
         if risk_score > 30:
             result = "⚠️ PHISHING DETECTED"
@@ -272,10 +317,24 @@ def predict():
                              reasons=reasons,
                              message=message)
 
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('index.html', error="Page not found"), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template('index.html', error="Internal server error"), 500
+
 if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 CYBERGUARD PRO - AI PHISHING DETECTOR")
     print("="*60)
-    print("📡 Server running at http://127.0.0.1:5000")
+    print("📡 Server starting...")
+    print("="*60)
+    print(f"✅ Model loaded: {'Yes' if model else 'No'}")
+    print(f"✅ Features: {len(feature_cols) if feature_cols else 0}")
     print("="*60 + "\n")
-    app.run(debug=True, port=5000)
+    
+    # Get port from environment variable (for Render) or use 10000 as default
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
